@@ -14,7 +14,6 @@ This is a tiny automatic differentiation library written in Rust. The library is
         let o = f.output();
 
         e.backward();
-        //println!("gradients = {:?}", gradients);
 
         a.step(learning_rate);
         b.step(learning_rate);
@@ -25,7 +24,7 @@ This is a tiny automatic differentiation library written in Rust. The library is
     println!("b = {}", b.output());
 ```
 
->A example neural network
+>An example neural network
 
 ``` rust
     struct Network {
