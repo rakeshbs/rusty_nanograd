@@ -1,108 +1,178 @@
 use rand::Rng;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::rc::Rc;
 
 pub type NodeRef = Rc<Node>;
 
-pub enum NodeOp {
-    Value(Rc<RefCell<f32>>),
-    Add(NodeRef, NodeRef),
-    Mul(NodeRef, NodeRef),
-    Sub(NodeRef, NodeRef),
-}
-
 pub struct Node {
-    pub id: usize,
-    pub op: Option<NodeOp>,
+    pub output: RefCell<f32>,
+    pub grad: RefCell<f32>,
+    pub requires_grad: bool,
+    backward_fn: Option<Box<dyn Fn(f32)>>,
 }
 
 impl Node {
-    pub fn new(_op: NodeOp) -> NodeRef {
-        let mut rng = rand::thread_rng();
-        let _id: usize = rng.gen();
+    pub fn new(output: f32, requires_grad: bool, backward_fn: impl Fn(f32) + 'static) -> NodeRef {
         let node = Node {
-            id: _id,
-            op: _op.into(),
+            output: RefCell::new(output),
+            grad: RefCell::new(0.),
+            requires_grad,
+            backward_fn: Some(Box::new(backward_fn)),
         };
         Rc::new(node)
     }
+
+    pub fn output(&self) -> f32 {
+        *self.output.borrow()
+    }
+
+    pub fn grad(&self) -> f32 {
+        *self.grad.borrow()
+    }
+
+    pub fn backward(&self) {
+        self.backward_fn.as_ref().unwrap()(1.);
+    }
+
+    fn _backward(&self, prev_grad: f32) {
+        self.backward_fn.as_ref().unwrap()(prev_grad);
+    }
+
+    pub fn step(&self, learning_rate: f32, batch_size: usize) {
+        if self.requires_grad {
+            let mut output_ref = self.output.borrow_mut();
+            *output_ref -= learning_rate * self.grad() / batch_size as f32;
+        }
+    }
+    pub fn zero_grad(&self) {
+        let mut grad = self.grad.borrow_mut();
+        *grad = 0.;
+    }
 }
 
-pub fn val(v: f32) -> NodeRef {
-    let node = Node::new(NodeOp::Value(Rc::new(RefCell::new(v))));
-    node
+pub fn val(v: f32, requires_grad: bool) -> NodeRef {
+    let func = |_: f32| move |_: f32| {};
+    Node::new(v, requires_grad, func(v))
+}
+
+pub fn array_to_val(v: Vec<f32>, requires_grad: bool) -> Vec<NodeRef> {
+    let mut nodes = Vec::new();
+    for i in v {
+        nodes.push(val(i, requires_grad));
+    }
+    nodes
 }
 
 pub fn add(a: &NodeRef, b: &NodeRef) -> NodeRef {
-    let node = Node::new(NodeOp::Add(a.clone(), b.clone()));
-    node
+    let func = |a: &NodeRef, b: &NodeRef| {
+        let (a, b) = (a.clone(), b.clone());
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            let mut gb = b.grad.borrow_mut();
+            *ga += prev_grad;
+            *gb += prev_grad;
+            a._backward(*ga);
+            b._backward(*gb);
+        }
+    };
+
+    Node::new(a.output() + b.output(), true, func(&a, &b))
 }
 
 pub fn mul(a: &NodeRef, b: &NodeRef) -> NodeRef {
-    let node = Node::new(NodeOp::Mul(a.clone(), b.clone()));
-    node
+    let func = |a: &NodeRef, b: &NodeRef| {
+        let (a, b) = (a.clone(), b.clone());
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            let mut gb = b.grad.borrow_mut();
+            let v_a = a.output();
+            let v_b = b.output();
+            *ga += prev_grad * v_b;
+            *gb += prev_grad * v_a;
+            a._backward(*ga);
+            b._backward(*gb);
+        }
+    };
+    Node::new(a.output() * b.output(), true, func(&a, &b))
 }
 
 pub fn sub(a: &NodeRef, b: &NodeRef) -> NodeRef {
-    let node = Node::new(NodeOp::Sub(a.clone(), b.clone()));
-    node
+    let func = |a: &NodeRef, b: &NodeRef| {
+        let (a, b) = (a.clone(), b.clone());
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            let mut gb = b.grad.borrow_mut();
+            *ga += prev_grad;
+            *gb -= prev_grad;
+            a._backward(*ga);
+            b._backward(*gb);
+        }
+    };
+    Node::new(a.output() - b.output(), true, func(&a, &b))
 }
 
-pub fn forward(node: &NodeRef, cache: &mut HashMap<usize, f32>) -> f32 {
-    if let Some(v) = cache.get(&node.id) {
-        return *v;
-    }
-    let output = match node.op {
-        Some(NodeOp::Value(ref v)) => *v.borrow(),
-        Some(NodeOp::Add(ref a, ref b)) => {
-            let a = forward(&a.clone(), cache);
-            let b = forward(&b.clone(), cache);
-            a + b
+pub fn pow(a: &NodeRef, b: f32) -> NodeRef {
+    let func = |a: &NodeRef, b: &NodeRef| {
+        let (a, b) = (a.clone(), b.clone());
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            let v_a = a.output();
+            let v_b = b.output();
+            *ga += prev_grad * v_b * v_a.powf(v_b - 1.);
+            a._backward(*ga);
         }
-        Some(NodeOp::Mul(ref a, ref b)) => {
-            let a = forward(&a.clone(), cache);
-            let b = forward(&b.clone(), cache);
-            a * b
-        }
-        Some(NodeOp::Sub(ref a, ref b)) => {
-            let a = forward(&a.clone(), cache);
-            let b = forward(&b.clone(), cache);
-            a - b
-        }
-        None => 0.,
     };
-    cache.insert(node.id, output);
-    output
+    Node::new(a.output().powf(b), true, func(&a, &val(b, false)))
 }
 
-pub fn backward(
-    node: &NodeRef,
-    cache: &mut HashMap<usize, f32>,
-    gradients: &mut HashMap<usize, f32>,
-    prev_grad: f32,
-) {
-    gradients.insert(node.id, prev_grad);
-    match node.op {
-        Some(NodeOp::Value(_)) => {
-            //gradients.insert(node.id, 1.);
+pub fn exp(a: &NodeRef) -> NodeRef {
+    let func = |a: &NodeRef| {
+        let a = a.clone();
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            let v_a = a.output();
+            *ga += prev_grad * v_a.exp();
+            a._backward(*ga);
         }
-        Some(NodeOp::Add(ref a, ref b)) => {
-            backward(&a.clone(), cache, gradients, prev_grad);
-            backward(&b.clone(), cache, gradients, prev_grad);
-        }
-        Some(NodeOp::Mul(ref a, ref b)) => {
-            let v_a = cache.get(&a.id).unwrap();
-            let v_b = cache.get(&b.id).unwrap();
-            let grad_a = prev_grad * v_b;
-            let grad_b = prev_grad * v_a;
-            backward(&a.clone(), cache, gradients, grad_a);
-            backward(&b.clone(), cache, gradients, grad_b);
-        }
-        Some(NodeOp::Sub(ref a, ref b)) => {
-            backward(&a.clone(), cache, gradients, prev_grad);
-            backward(&b.clone(), cache, gradients, -prev_grad);
-        }
-        None => {}
     };
+    Node::new(a.output().exp(), true, func(&a))
+}
+
+pub fn tanh(a: &NodeRef) -> NodeRef {
+    let func = |a: &NodeRef| {
+        let a = a.clone();
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            let v_a = a.output();
+            *ga += prev_grad * (1. - v_a.tanh().powi(2));
+            a._backward(*ga);
+        }
+    };
+    Node::new(a.output().tanh(), true, func(&a))
+}
+
+pub fn relu(a: &NodeRef) -> NodeRef {
+    let func = |a: &NodeRef| {
+        let a = a.clone();
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            let v_a = a.output();
+            *ga += prev_grad * if v_a > 0. { 1. } else { 0. };
+            a._backward(*ga);
+        }
+    };
+    Node::new(a.output().max(0.), true, func(&a))
+}
+
+pub fn leaky_relu(a: &NodeRef) -> NodeRef {
+    let func = |a: &NodeRef| {
+        let a = a.clone();
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            let v_a = a.output();
+            *ga += prev_grad * if v_a > 0. { 1. } else { 0.01 };
+            a._backward(*ga);
+        }
+    };
+    Node::new(a.output().max(0.), true, func(&a))
 }
