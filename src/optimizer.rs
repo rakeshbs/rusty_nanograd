@@ -16,7 +16,7 @@ impl Optimizer {
     }
     pub fn step(&self) {
         for param in &self.parameters {
-            param.step(self.learning_rate, self.batch_size);
+            param.step(self.learning_rate / self.batch_size as f32);
         }
     }
     pub fn zero_grad(&self) {

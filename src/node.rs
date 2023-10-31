@@ -38,10 +38,10 @@ impl Node {
         self.backward_fn.as_ref().unwrap()(prev_grad);
     }
 
-    pub fn step(&self, learning_rate: f32, batch_size: usize) {
+    pub fn step(&self, scale: f32) {
         if self.requires_grad {
             let mut output_ref = self.output.borrow_mut();
-            *output_ref -= learning_rate * self.grad() / batch_size as f32;
+            *output_ref -= scale * self.grad();
         }
     }
     pub fn zero_grad(&self) {

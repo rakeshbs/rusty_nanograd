@@ -81,8 +81,8 @@ fn test_computational_graph() {
         e.backward();
         //println!("gradients = {:?}", gradients);
 
-        a.step(learning_rate, 1);
-        b.step(learning_rate, 1);
+        a.step(learning_rate);
+        b.step(learning_rate);
         a.zero_grad();
         b.zero_grad();
     }
