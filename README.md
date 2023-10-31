@@ -11,9 +11,8 @@ This is a tiny automatic differentiation library written in Rust. The library is
         let d = pow(&b, 2.);
         let e = add(&c, &d);
         let f = tanh(&e);
-        let o = f.output();
 
-        e.backward();
+        f.backward();
 
         a.step(learning_rate);
         b.step(learning_rate);

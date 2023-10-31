@@ -1,7 +1,6 @@
 mod nn;
 mod node;
 mod optimizer;
-mod sine_generator;
 use crate::nn::*;
 use crate::node::*;
 use crate::optimizer::*;
@@ -76,10 +75,8 @@ fn test_computational_graph() {
         let d = pow(&b, 2.);
         let e = add(&c, &d);
         let f = tanh(&e);
-        let o = f.output();
 
-        e.backward();
-        //println!("gradients = {:?}", gradients);
+        f.backward();
 
         a.step(learning_rate);
         b.step(learning_rate);
