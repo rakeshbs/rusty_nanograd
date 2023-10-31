@@ -1,6 +1,6 @@
 This is a tiny automatic differentiation library written in Rust. The library is designed to be easy to use and extend. It is also designed to be fast and memory efficient.
 >An example using 2 values
-```
+``` rust
     let a = val(1., true);
     let b = val(2., true);
 
@@ -27,7 +27,7 @@ This is a tiny automatic differentiation library written in Rust. The library is
 
 >A example neural network
 
-```
+``` rust
     struct Network {
         l1: LinearLayer,
         l2: LinearLayer,
