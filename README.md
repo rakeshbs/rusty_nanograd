@@ -1,19 +1,22 @@
 This is a tiny automatic differentiation library written in Rust. The library is designed to be easy to use and extend. It is also designed to be fast and memory efficient.
 >An example using 2 values
 ``` rust
-    let a = val(1., true);
+    let a = val(3., true);
     let b = val(2., true);
+
+    let target = val(0., false);
 
     let learning_rate = 0.01;
 
-    for i in 0..10 {
+    for i in 0..1000 {
         let c = pow(&a, 2.);
         let d = pow(&b, 2.);
         let e = add(&c, &d);
-        let f = tanh(&e);
+        let f = leaky_relu(&e);
+        let diff = sub(&f, &target);
+        let loss = pow(&diff, 2.);
 
-        f.backward();
-
+        loss.backward();
         a.step(learning_rate);
         b.step(learning_rate);
         a.zero_grad();
