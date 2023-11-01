@@ -81,8 +81,6 @@ fn test_computational_graph() {
         let loss = pow(&diff, 2.);
 
         loss.backward();
-        println!("f = {} ", &f.output());
-        println!("loss = {} ", &loss.output());
         a.step(learning_rate);
         b.step(learning_rate);
         a.zero_grad();
