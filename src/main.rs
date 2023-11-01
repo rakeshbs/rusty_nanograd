@@ -45,7 +45,7 @@ fn test_neural_network() {
 
     for _ in 0..100 {
         let y = nn.forward(&x);
-        let mut loss = val(0., false);
+        let mut loss = val(0., true);
         for j in 0..y.len() {
             let diff = sub(&y[j], &_y[j]);
             loss = add(&loss, &pow(&diff, 2.));
@@ -65,19 +65,24 @@ fn test_neural_network() {
 }
 
 fn test_computational_graph() {
-    let a = val(1., true);
+    let a = val(3., true);
     let b = val(2., true);
+
+    let target = val(0., false);
 
     let learning_rate = 0.01;
 
-    for i in 0..10 {
+    for i in 0..1000 {
         let c = pow(&a, 2.);
         let d = pow(&b, 2.);
         let e = add(&c, &d);
-        let f = tanh(&e);
+        let f = leaky_relu(&e);
+        let diff = sub(&f, &target);
+        let loss = pow(&diff, 2.);
 
-        f.backward();
-
+        loss.backward();
+        println!("f = {} ", &f.output());
+        println!("loss = {} ", &loss.output());
         a.step(learning_rate);
         b.step(learning_rate);
         a.zero_grad();
