@@ -1,4 +1,5 @@
-This is a tiny automatic differentiation library written in Rust. The library is designed to be easy to use and extend. It is also designed to be fast and memory efficient.
+This is a tiny automatic differentiation library written in Rust. The library was created for learning purposes and is not intended to be used in production.
+
 >An example using 2 values
 ``` rust
     let a = val(3., true);
