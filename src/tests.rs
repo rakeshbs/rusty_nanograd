@@ -32,19 +32,28 @@ impl Network {
 pub fn test_neural_network() {
     let nn = Network::new();
     let x = array_to_val(vec![1., 2., 3., 4.], false);
-    let _y = array_to_val(vec![-10., 20.54553, 30.], false);
-    let optimizer = Optimizer::new(nn.parameters(), 0.1, 1);
+    let _y = array_to_val(vec![4., 1.3, 2.], false);
+    let optimizer = Optimizer::new(nn.parameters(), 0.1);
+    let num_epochs = 200;
+    let batch_size = 64;
 
-    for _ in 0..100 {
-        let y = nn.forward(&x);
-        let mut loss = val(0., true);
-        for j in 0..y.len() {
-            let diff = sub(&y[j], &_y[j]);
-            loss = add(&loss, &pow(&diff, 2.));
+    for i in 0..num_epochs {
+        println!("Epoch {}", i);
+        let mut batch_loss = val(0., true);
+        for _ in 0..batch_size {
+            let y = nn.forward(&x);
+            let mut loss = val(0., true);
+            for j in 0..y.len() {
+                let diff = sub(&y[j], &_y[j]);
+                loss = add(&loss, &pow(&diff, 2.));
+            }
+            batch_loss = add(&batch_loss, &loss);
         }
-        loss.backward();
+        batch_loss = div(&batch_loss, &val(batch_size as f32, false));
+        batch_loss.backward();
         optimizer.step();
         optimizer.zero_grad();
+        println!("loss = {}", batch_loss.output());
     }
 
     let y = nn

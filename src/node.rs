@@ -111,6 +111,35 @@ pub fn sub(a: &NodeRef, b: &NodeRef) -> NodeRef {
     Node::new(a.output() - b.output(), true, func(&a, &b))
 }
 
+pub fn neg(a: &NodeRef) -> NodeRef {
+    let func = |a: &NodeRef| {
+        let a = a.clone();
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            *ga -= prev_grad;
+            a._backward(*ga);
+        }
+    };
+    Node::new(-a.output(), true, func(&a))
+}
+
+pub fn div(a: &NodeRef, b: &NodeRef) -> NodeRef {
+    let func = |a: &NodeRef, b: &NodeRef| {
+        let (a, b) = (a.clone(), b.clone());
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            let mut gb = b.grad.borrow_mut();
+            let v_a = a.output();
+            let v_b = b.output();
+            *ga += prev_grad / v_b;
+            *gb -= prev_grad * v_a / (v_b * v_b);
+            a._backward(*ga);
+            b._backward(*gb);
+        }
+    };
+    Node::new(a.output() / b.output(), true, func(&a, &b))
+}
+
 pub fn pow(a: &NodeRef, b: f32) -> NodeRef {
     let func = |a: &NodeRef, b: &NodeRef| {
         let (a, b) = (a.clone(), b.clone());
@@ -175,4 +204,29 @@ pub fn leaky_relu(a: &NodeRef) -> NodeRef {
         }
     };
     Node::new(a.output().max(0.), true, func(&a))
+}
+
+pub fn log2(a: &NodeRef) -> NodeRef {
+    let func = |a: &NodeRef| {
+        let a = a.clone();
+        move |prev_grad: f32| {
+            let mut ga = a.grad.borrow_mut();
+            let v_a = a.output();
+            *ga += prev_grad / (v_a * 0.6931471805599453);
+            a._backward(*ga);
+        }
+    };
+    Node::new(a.output().log2(), true, func(&a))
+}
+
+pub fn softmax(a: &Vec<NodeRef>) -> Vec<NodeRef> {
+    let mut sum = val(0., false);
+    for i in a {
+        sum = add(&sum, &exp(&i));
+    }
+    let mut output = Vec::new();
+    for i in a {
+        output.push(div(&exp(&i), &sum));
+    }
+    output
 }
