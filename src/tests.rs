@@ -30,12 +30,14 @@ impl Network {
 }
 
 pub fn test_neural_network() {
-    let nn = Network::new();
     let x = array_to_val(vec![1., 2., 3., 4.], false);
     let _y = array_to_val(vec![4., 1.3, 2.], false);
-    let optimizer = Optimizer::new(nn.parameters(), 0.1);
     let num_epochs = 200;
     let batch_size = 64;
+    let learning_rate = 0.1;
+
+    let nn = Network::new();
+    let optimizer = Optimizer::new(nn.parameters(), learning_rate);
 
     for i in 0..num_epochs {
         println!("Epoch {}", i);
@@ -53,7 +55,7 @@ pub fn test_neural_network() {
         batch_loss.backward();
         optimizer.step();
         optimizer.zero_grad();
-        println!("loss = {}", batch_loss.output());
+        println!("Batch loss = {}", batch_loss.output());
     }
 
     let y = nn
